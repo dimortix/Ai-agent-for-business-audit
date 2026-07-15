@@ -1,0 +1,71 @@
+name: alfa-pulse
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pulse
+      POSTGRES_PASSWORD: pulse
+      POSTGRES_DB: pulse
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse -d pulse"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # для отладки с хоста раскомментируйте:
+    # ports:
+    #   - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ml-service:
+    build: ./ml-service
+    # Prophet импортируется при старте — даём время
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://pulse:pulse@postgres:5432/pulse?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      ML_SERVICE_URL: http://ml-service:8000
+      HTTP_ADDR: ":8080"
+      WEB_DIR: /app/web/dist
+      DATA_DIR: /app/data
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-please}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-alfa-admin}
+      APP_ENV: ${APP_ENV:-dev}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      RECALC_INTERVAL: ${RECALC_INTERVAL:-1h}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # ml-service не блокирует старт: при его недоступности работает Go-fallback (Хольт-Винтерс)
+      ml-service:
+        condition: service_started
+
+volumes:
+  pgdata:

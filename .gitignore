@@ -1,0 +1,19 @@
+# секреты и локальная конфигурация
+.env
+
+# бинарники
+bin/
+*.exe
+
+# фронтенд
+web/node_modules/
+web/dist/
+web/dev-dist/
+
+# сгенерированные демо-данные
+data/*.csv
+data/expenses.sql
+
+# системное
+.DS_Store
+*.log

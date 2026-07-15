@@ -1,0 +1,11 @@
+.git
+.env
+bin/
+data/
+web/node_modules/
+web/dist/
+web/dev-dist/
+ml-service/
+README.md
+*.log
+.DS_Store

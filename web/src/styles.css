@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+/* Тема «Альфа»: фирменный красный, тёмно-синий текст, светло-серые поверхности.
+   Цвета графиков и статусов прошли валидатор палитры (CVD/контраст). */
+@theme {
+  --color-brand: #ef3124;
+  --color-brand-dark: #cf2a1f;
+  --color-brand-soft: #fdeae8;
+
+  --color-ink: #101828;
+  --color-ink-2: #475467;
+  --color-ink-3: #98a2b3;
+
+  --color-bg: #f4f5f6;
+  --color-card: #ffffff;
+  --color-line: #e7e9ec;
+
+  --color-series-fact: #2f6fe4; /* факт — синий */
+  --color-series-forecast: #ef3124; /* прогноз — красный */
+
+  --color-good: #1e9e5a;
+  --color-good-soft: #e6f6ee;
+  --color-warn: #e8a23d;
+  --color-warn-soft: #fdf3e3;
+  --color-crit: #ef3124;
+  --color-crit-soft: #fdeae8;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  --radius-card: 1.25rem;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 16px rgb(16 24 40 / 0.06);
+}
+
+html {
+  background: var(--color-bg);
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* --- многоразовые блоки ------------------------------------------------- */
+
+.card {
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--color-brand);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0.875rem;
+  padding: 0.875rem 1.25rem;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+.btn-primary:hover {
+  background: var(--color-brand-dark);
+}
+.btn-primary:active {
+  transform: scale(0.98);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-weight: 500;
+  border-radius: 0.875rem;
+  padding: 0.75rem 1.125rem;
+  transition: background 0.15s ease;
+}
+.btn-ghost:hover {
+  background: var(--color-line);
+}
+
+.input {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1.5px solid transparent;
+  border-radius: 0.875rem;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  color: var(--color-ink);
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.input:focus {
+  border-color: var(--color-brand);
+  background: #fff;
+}
+.input::placeholder {
+  color: var(--color-ink-3);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 999px;
+  padding: 0.375rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: var(--color-bg);
+  color: var(--color-ink-2);
+  transition: background 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+}
+.chip[data-active="true"] {
+  background: var(--color-ink);
+  color: #fff;
+}
+
+/* появление карточек */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise-in {
+  animation: rise-in 0.35s ease both;
+}
+.rise-in-1 { animation-delay: 0.05s; }
+.rise-in-2 { animation-delay: 0.1s; }
+.rise-in-3 { animation-delay: 0.15s; }
+.rise-in-4 { animation-delay: 0.2s; }
+
+/* пульс на логотипе */
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.75; }
+}
+.pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in, .pulse-dot {
+    animation: none;
+  }
+}
