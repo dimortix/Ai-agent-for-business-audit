@@ -2,14 +2,16 @@ import { CloudOff, FlaskConical, Lightbulb, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api/client";
-import type { Advice, Dashboard as DashboardData } from "../api/types";
+import type { Advice, Dashboard as DashboardData, Insights } from "../api/types";
 import AdviceCard from "../components/AdviceCard";
 import { EmptyState, ErrorNote, Spinner, StatCard } from "../components/Bits";
 import CashGapAlert from "../components/CashGapAlert";
 import ForecastChart from "../components/ForecastChart";
 import HealthGauge from "../components/HealthGauge";
+import { InsightsStrip, ScenariosCard } from "../components/InsightBlocks";
 import IntroCard from "../components/IntroCard";
 import MetricChart from "../components/MetricChart";
+import OperationsCard from "../components/OperationsCard";
 import PushButton from "../components/PushButton";
 import TelegramCard from "../components/TelegramCard";
 import { fmtDateShort, fmtMoney, fmtMoneyCompact } from "../lib/format";
@@ -18,6 +20,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [advice, setAdvice] = useState<Advice[]>([]);
+  const [insights, setInsights] = useState<Insights | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -28,6 +31,9 @@ export default function Dashboard() {
           void api<{ items: Advice[] }>("/api/advice?status=active")
             .then((r) => setAdvice(r.items ?? []))
             .catch(() => setAdvice([]));
+          void api<Insights>("/api/insights")
+            .then(setInsights)
+            .catch(() => setInsights(null));
         }
       })
       .catch((err) => {
@@ -44,8 +50,12 @@ export default function Dashboard() {
 
   const lastDay = data.last_7_days.at(-1);
 
+  const runway = insights?.runway_days;
+  const runwayValue =
+    runway === undefined ? null : runway > 120 ? "120+ дней" : `${runway} дн.`;
+
   const stats = lastDay && (
-    <div className="grid grid-cols-3 gap-3">
+    <div className={`grid gap-3 ${runwayValue ? "grid-cols-2" : "grid-cols-3"}`}>
       <StatCard
         label={`Выручка ${fmtDateShort(lastDay.date)}`}
         value={fmtMoneyCompact(lastDay.revenue) + " ₽"}
@@ -53,6 +63,14 @@ export default function Dashboard() {
       />
       <StatCard label="Покупок" value={String(lastDay.transactions)} delay={3} />
       <StatCard label="Средний чек" value={fmtMoney(lastDay.avg_check)} delay={3} />
+      {runwayValue && (
+        <StatCard
+          label="Запас прочности"
+          value={runwayValue}
+          hint="до опасного уровня денег"
+          delay={3}
+        />
+      )}
     </div>
   );
 
@@ -124,6 +142,32 @@ export default function Dashboard() {
         forecast={data.forecast ?? []}
         cashGapDate={data.cash_gap_date}
       />
+
+      {/* сценарии из интервала прогноза + динамика индекса */}
+      <div className="flex flex-col gap-3 md:grid md:grid-cols-2 md:items-start">
+        {insights?.scenarios && <ScenariosCard scenarios={insights.scenarios} delay={2} />}
+        {insights?.health_history && insights.health_history.length >= 3 && (
+          <MetricChart
+            title="Динамика индекса здоровья"
+            data={insights.health_history.map((h) => ({
+              date: h.at.slice(0, 10),
+              index: h.index,
+            }))}
+            dataKey="index"
+            kind="line"
+            format={(v) => `${v} из 100`}
+            delay={3}
+          />
+        )}
+      </div>
+
+      {insights && insights.insights.length > 0 && (
+        <InsightsStrip texts={insights.insights} delay={3} />
+      )}
+
+      {data.recent_operations && data.recent_operations.length > 0 && (
+        <OperationsCard items={data.recent_operations} delay={3} />
+      )}
 
       {advice.length > 0 && (
         <>

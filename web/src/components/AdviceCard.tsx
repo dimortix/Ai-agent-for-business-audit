@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Receipt, TrendingDown, Users, Lightbulb } from "lucide-react";
+import { AlertTriangle, Check, Receipt, Sparkles, TrendingDown, Users, Lightbulb } from "lucide-react";
 import { useState } from "react";
 import type { Advice } from "../api/types";
 import { fmtDateShort } from "../lib/format";
@@ -8,6 +8,7 @@ const ruleMeta: Record<string, { icon: typeof Lightbulb; title: string }> = {
   REVENUE_DECLINE_3D: { icon: TrendingDown, title: "Выручка падает" },
   TRAFFIC_DROP: { icon: Users, title: "Меньше клиентов" },
   CASH_GAP_SOON: { icon: AlertTriangle, title: "Кассовый разрыв" },
+  AI_ADVICE: { icon: Sparkles, title: "AI-совет" },
 };
 
 interface Props {
@@ -21,6 +22,7 @@ export default function AdviceCard({ advice, onDone, delay = 0 }: Props) {
   const meta = ruleMeta[advice.rule_code] ?? { icon: Lightbulb, title: "Совет" };
   const Icon = meta.icon;
   const urgent = advice.rule_code === "CASH_GAP_SOON" && !advice.was_action_taken;
+  const isAI = advice.rule_code === "AI_ADVICE";
 
   return (
     <div className={`card rise-in p-4 ${delay ? `rise-in-${delay}` : ""} ${advice.was_action_taken ? "opacity-60" : ""}`}>
@@ -28,16 +30,28 @@ export default function AdviceCard({ advice, onDone, delay = 0 }: Props) {
         <div
           className="flex size-9 shrink-0 items-center justify-center rounded-xl"
           style={{
-            background: urgent ? "var(--color-crit-soft)" : "var(--color-bg)",
-            color: urgent ? "var(--color-crit)" : "var(--color-ink-2)",
+            background: urgent
+              ? "var(--color-crit-soft)"
+              : isAI
+                ? "var(--color-brand-soft)"
+                : "var(--color-bg)",
+            color: urgent ? "var(--color-crit)" : isAI ? "var(--color-brand)" : "var(--color-ink-2)",
           }}
         >
           <Icon className="size-4.5" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs font-bold uppercase tracking-wide text-ink-3">
+            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-ink-3">
               {meta.title}
+              {isAI && (
+                <span
+                  className="rounded px-1.5 py-0.5 text-[10px] font-bold not-italic"
+                  style={{ background: "var(--color-brand)", color: "#fff" }}
+                >
+                  AI
+                </span>
+              )}
             </span>
             <span className="shrink-0 text-[11px] text-ink-3">{fmtDateShort(advice.created_at.slice(0, 10))}</span>
           </div>

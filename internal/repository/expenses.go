@@ -11,7 +11,7 @@ import (
 
 func (r *Repository) ListExpenses(ctx context.Context, pid uuid.UUID) ([]models.FixedExpense, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT participant_id, description, amount, COALESCE(due_day_of_month, 1)
+		SELECT participant_id, description, amount, COALESCE(due_day_of_month, 1), category
 		FROM fixed_expenses
 		WHERE participant_id = $1
 		ORDER BY description`, pid)
@@ -23,7 +23,7 @@ func (r *Repository) ListExpenses(ctx context.Context, pid uuid.UUID) ([]models.
 	var out []models.FixedExpense
 	for rows.Next() {
 		var e models.FixedExpense
-		if err := rows.Scan(&e.ParticipantID, &e.Description, &e.Amount, &e.DueDayOfMonth); err != nil {
+		if err := rows.Scan(&e.ParticipantID, &e.Description, &e.Amount, &e.DueDayOfMonth, &e.Category); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
@@ -33,13 +33,17 @@ func (r *Repository) ListExpenses(ctx context.Context, pid uuid.UUID) ([]models.
 
 // UpsertExpense добавляет или обновляет фиксированный расход участника.
 func (r *Repository) UpsertExpense(ctx context.Context, e models.FixedExpense) error {
+	if e.Category == "" {
+		e.Category = "other"
+	}
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO fixed_expenses (participant_id, description, amount, due_day_of_month)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO fixed_expenses (participant_id, description, amount, due_day_of_month, category)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (participant_id, description) DO UPDATE SET
 			amount = EXCLUDED.amount,
-			due_day_of_month = EXCLUDED.due_day_of_month`,
-		e.ParticipantID, e.Description, e.Amount, e.DueDayOfMonth)
+			due_day_of_month = EXCLUDED.due_day_of_month,
+			category = EXCLUDED.category`,
+		e.ParticipantID, e.Description, e.Amount, e.DueDayOfMonth, e.Category)
 	return err
 }
 

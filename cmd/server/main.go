@@ -1,4 +1,4 @@
-// Альфа-Пульс: основной сервер — HTTP API + SPA, Telegram-бот,
+// Альфа.Пульс: основной сервер — HTTP API + SPA, Telegram-бот,
 // планировщик пересчёта прогнозов, уведомления.
 package main
 
@@ -69,6 +69,13 @@ func run(cfg config.Config, log *slog.Logger) error {
 
 	repo := repository.New(pool)
 	svc := service.New(repo, service.NewMLClient(cfg.MLServiceURL), log)
+	// LLM-модуль AI-советов (опционально: GigaChat/OpenAI/локальный эндпоинт)
+	if cfg.LLMApiURL != "" {
+		svc = svc.WithLLM(service.NewLLMClient(cfg.LLMApiURL, cfg.LLMApiKey, cfg.LLMModel))
+		log.Info("AI-советы включены (LLM подключён)", "model", cfg.LLMModel)
+	} else {
+		log.Info("AI-советы выключены (LLM_API_URL не задан) — работают правила")
+	}
 	pushSender := push.New(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, log)
 	if !pushSender.Enabled() {
 		log.Warn("web push выключен: заполните VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY (make vapid)")

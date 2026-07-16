@@ -54,7 +54,7 @@ func (n *Notifier) NotifyIfCritical(ctx context.Context, p *models.Participant, 
 		return
 	}
 
-	title := "Альфа-Пульс: бизнесу нужно внимание"
+	title := "Альфа.Пульс: бизнесу нужно внимание"
 	body := fmt.Sprintf("Индекс здоровья упал до %d из 100.", res.HealthIndex)
 	if res.CashGapDate != nil {
 		body += fmt.Sprintf(" Возможен кассовый разрыв %s — не хватит около %s.",

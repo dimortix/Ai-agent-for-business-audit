@@ -1,18 +1,19 @@
-import { Activity, BarChart3, Lightbulb, LogOut } from "lucide-react";
+import { Activity, BarChart3, Lightbulb, LogOut, Wallet } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { loadUser, logout } from "../api/client";
 
 const tabs = [
-  { to: "/", label: "Пульс", icon: Activity },
-  { to: "/analytics", label: "Аналитика", icon: BarChart3 },
-  { to: "/advice", label: "Советы", icon: Lightbulb },
+  { to: "/", label: "Пульс", icon: Activity, bOnly: false },
+  { to: "/analytics", label: "Аналитика", icon: BarChart3, bOnly: false },
+  { to: "/expenses", label: "Расходы", icon: Wallet, bOnly: true },
+  { to: "/advice", label: "Советы", icon: Lightbulb, bOnly: true },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const user = loadUser();
   const navigate = useNavigate();
-  // контрольной группе A раздел «Советы» не положен — прячем из навигации
-  const visibleTabs = tabs.filter((t) => t.to !== "/advice" || user?.group_type === "B");
+  // разделы «Расходы» и «Советы» — только для группы B (полный функционал)
+  const visibleTabs = tabs.filter((t) => !t.bOnly || user?.group_type === "B");
 
   return (
     <div className="min-h-dvh pb-24 md:pb-10">
@@ -22,7 +23,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Activity className="size-5 text-white" strokeWidth={2.5} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold leading-tight">Альфа-Пульс</div>
+            <div className="text-sm font-bold leading-tight">Альфа.Пульс</div>
             <div className="truncate text-xs text-ink-3">
               {user?.name || user?.phone || "пульс вашего бизнеса"}
             </div>

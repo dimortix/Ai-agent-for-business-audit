@@ -15,8 +15,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       injectRegister: "auto",
       manifest: {
-        name: "Альфа-Пульс — пульс вашего бизнеса",
-        short_name: "Альфа-Пульс",
+        name: "Альфа.Пульс — пульс вашего бизнеса",
+        short_name: "Альфа.Пульс",
         description:
           "Индекс здоровья бизнеса, прогноз выручки и советы — прямо в телефоне",
         lang: "ru",

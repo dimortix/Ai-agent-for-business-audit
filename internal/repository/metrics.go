@@ -63,6 +63,38 @@ func (r *Repository) GetLastMetrics(ctx context.Context, pid uuid.UUID, n int) (
 	return scanMetrics(rows)
 }
 
+// ParticipantGrowth — выручка за последние 30 дней против предыдущих 30
+// (для обезличенного бенчмарка внутри пилота).
+type ParticipantGrowth struct {
+	ParticipantID uuid.UUID
+	Current30     decimal.Decimal
+	Previous30    decimal.Decimal
+}
+
+func (r *Repository) GrowthByGroup(ctx context.Context, group string) ([]ParticipantGrowth, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT m.participant_id,
+		       COALESCE(SUM(CASE WHEN m.date >  CURRENT_DATE - 30 THEN m.total_revenue - m.return_amount ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN m.date <= CURRENT_DATE - 30 AND m.date > CURRENT_DATE - 60 THEN m.total_revenue - m.return_amount ELSE 0 END), 0)
+		FROM daily_metrics m
+		JOIN participants p ON p.id = m.participant_id AND p.group_type = $1
+		GROUP BY m.participant_id`, group)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []ParticipantGrowth
+	for rows.Next() {
+		var g ParticipantGrowth
+		if err := rows.Scan(&g.ParticipantID, &g.Current30, &g.Previous30); err != nil {
+			return nil, err
+		}
+		out = append(out, g)
+	}
+	return out, rows.Err()
+}
+
 type MetricTotals struct {
 	NetTotal  decimal.Decimal // Σ(total_revenue − return_amount) за всю историю
 	FirstDate *time.Time

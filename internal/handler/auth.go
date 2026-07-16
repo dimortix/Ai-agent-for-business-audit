@@ -47,7 +47,7 @@ func (d Deps) requestCode(w http.ResponseWriter, r *http.Request) {
 
 	sentToTelegram := false
 	if p.TelegramChatID != nil && d.TG != nil {
-		if err := d.TG.SendTo(*p.TelegramChatID, "🔐 Код входа в Альфа-Пульс: <b>"+code+"</b>\nДействует 5 минут."); err != nil {
+		if err := d.TG.SendTo(*p.TelegramChatID, "🔐 Код входа в Альфа.Пульс: <b>"+code+"</b>\nДействует 5 минут."); err != nil {
 			d.Log.Warn("не удалось отправить OTP в Telegram", "err", err)
 		} else {
 			sentToTelegram = true

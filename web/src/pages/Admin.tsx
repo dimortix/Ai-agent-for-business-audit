@@ -196,6 +196,149 @@ export default function Admin() {
   );
 }
 
+/* Управление фиксированными расходами: от них зависят ИЖБ и дата разрыва. */
+function ExpensesSection({ participants, adminFetch }: {
+  participants: AdminParticipant[];
+  adminFetch: (path: string, init?: RequestInit) => Promise<unknown>;
+}) {
+  const [pid, setPid] = useState("");
+  const [items, setItems] = useState<Expense[]>([]);
+  const [total, setTotal] = useState(0);
+  const [err, setErr] = useState("");
+  const [form, setForm] = useState({ description: "", amount: "", due: "" });
+
+  const load = useCallback(async (id: string) => {
+    if (!id) return;
+    setErr("");
+    try {
+      const data = (await adminFetch(`/api/admin/expenses/${id}`)) as {
+        items: Expense[] | null;
+        monthly_total: number;
+      };
+      setItems(data.items ?? []);
+      setTotal(data.monthly_total ?? 0);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "не удалось загрузить расходы");
+    }
+  }, [adminFetch]);
+
+  useEffect(() => {
+    if (!pid && participants.length > 0) {
+      const first = participants.find((p) => p.group_type === "B") ?? participants[0];
+      setPid(first.id);
+      void load(first.id);
+    }
+  }, [participants, pid, load]);
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    try {
+      await adminFetch(`/api/admin/expenses/${pid}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: form.description.trim(),
+          amount: Number(form.amount),
+          due_day_of_month: Number(form.due),
+        }),
+      });
+      setForm({ description: "", amount: "", due: "" });
+      await load(pid);
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "не удалось сохранить");
+    }
+  }
+
+  async function remove(description: string) {
+    setErr("");
+    try {
+      await adminFetch(
+        `/api/admin/expenses/${pid}?description=${encodeURIComponent(description)}`,
+        { method: "DELETE" },
+      );
+      await load(pid);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "не удалось удалить");
+    }
+  }
+
+  return (
+    <div className="card mb-4 p-4">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm font-bold">
+          Фиксированные расходы
+          {total > 0 && <span className="ml-2 font-normal text-ink-3">{fmtMoney(total)}/мес</span>}
+        </div>
+        <select
+          className="input !w-auto !py-2 text-sm"
+          value={pid}
+          onChange={(e) => {
+            setPid(e.target.value);
+            void load(e.target.value);
+          }}
+        >
+          {participants.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name || p.account_id} ({p.group_type})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {err && <div className="mb-3"><ErrorNote message={err} /></div>}
+
+      <table className="w-full text-sm">
+        <tbody>
+          {items.map((e) => (
+            <tr key={e.description} className="border-b border-line last:border-0">
+              <td className="py-2 pr-2">{e.description}</td>
+              <td className="py-2 pr-2 text-right tabular-nums">{fmtMoney(e.amount)}</td>
+              <td className="py-2 pr-2 text-right text-xs text-ink-3">до {e.due_day_of_month} числа</td>
+              <td className="py-2 text-right">
+                <button
+                  className="rounded-lg p-1.5 text-ink-3 transition-colors hover:bg-crit-soft hover:text-crit"
+                  title="Удалить"
+                  onClick={() => void remove(e.description)}
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 && (
+            <tr><td className="py-3 text-center text-xs text-ink-3">расходов нет</td></tr>
+          )}
+        </tbody>
+      </table>
+
+      <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <input
+          className="input flex-1 !py-2 text-sm" placeholder="Название (Аренда…)"
+          value={form.description} required maxLength={200}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+        />
+        <input
+          className="input !py-2 text-sm sm:!w-32" placeholder="Сумма ₽" type="number" min="1"
+          value={form.amount} required
+          onChange={(e) => setForm({ ...form, amount: e.target.value })}
+        />
+        <input
+          className="input !py-2 text-sm sm:!w-28" placeholder="День (1–31)" type="number" min="1" max="31"
+          value={form.due} required
+          onChange={(e) => setForm({ ...form, due: e.target.value })}
+        />
+        <button className="btn-primary !py-2 text-sm" type="submit">
+          <Plus className="size-4" /> Добавить
+        </button>
+      </form>
+      <p className="mt-2 text-[11px] text-ink-3">
+        После изменения расходов прогноз и индекс участника пересчитываются автоматически.
+      </p>
+    </div>
+  );
+}
+
 function UploadCard({ title, hint, disabled, onFile }: {
   title: string;
   hint: string;

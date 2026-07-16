@@ -27,11 +27,18 @@ var (
 type Service struct {
 	repo *repository.Repository
 	ml   *MLClient
+	llm  *LLMClient
 	log  *slog.Logger
 }
 
 func New(repo *repository.Repository, ml *MLClient, log *slog.Logger) *Service {
 	return &Service{repo: repo, ml: ml, log: log}
+}
+
+// WithLLM подключает LLM-модуль для AI-советов (опционально).
+func (s *Service) WithLLM(llm *LLMClient) *Service {
+	s.llm = llm
+	return s
 }
 
 func (s *Service) Repo() *repository.Repository { return s.repo }
@@ -98,11 +105,19 @@ func (s *Service) Recalculate(ctx context.Context, pid uuid.UUID) (*RecalcResult
 	historyDays := int(lastDate.Sub(dateOnly(*totals.FirstDate)).Hours()/24) + 1
 	balance := CurrentBalance(totals.NetTotal, monthly, historyDays)
 
+	// Разовые расходы: прошлые уменьшают баланс, будущие — платежи в горизонте.
+	if paidOneOffs, err := s.repo.SumOneOffExpenses(ctx, pid, lastDate); err == nil {
+		balance = balance.Sub(paidOneOffs)
+	}
+	payments := DuePayments(expenses, lastDate, horizonDays)
+	if future, err := s.repo.FutureOneOffExpenses(ctx, pid, lastDate, horizonDays); err == nil {
+		payments = append(payments, oneOffsAsPayments(future)...)
+	}
+
 	avg7 := avgLastN(values, 7)
 	f30 := Forecast30(yhat, avg7)
 
-	gapDate, gapAmount := DetectCashGap(balance, yhat, forecastDates,
-		DuePayments(expenses, lastDate, horizonDays), monthly)
+	gapDate, gapAmount := DetectCashGap(balance, yhat, forecastDates, payments, monthly)
 
 	// Базовая формула ТЗ + штрафы за краткосрочные риски (см. health.go).
 	index := AdjustHealthIndex(
@@ -136,6 +151,11 @@ func (s *Service) Recalculate(ctx context.Context, pid uuid.UUID) (*RecalcResult
 	newAdvice, err := s.applyRules(ctx, pid, gapDate, gapAmount)
 	if err != nil {
 		s.log.Warn("не удалось создать рекомендации", "participant", pid, "err", err)
+	}
+
+	// AI-советы от LLM (если подключён): свежий взгляд поверх правил, раз в сутки.
+	if aiCodes := s.applyAIAdvice(ctx, p, index, monthly, gapDate); len(aiCodes) > 0 {
+		newAdvice = append(newAdvice, aiCodes...)
 	}
 
 	s.log.Info("пересчёт завершён",
@@ -205,6 +225,52 @@ func (s *Service) applyRules(ctx context.Context, pid uuid.UUID, gapDate *time.T
 	return created, nil
 }
 
+// applyAIAdvice запрашивает у LLM свежие советы (не чаще раза в сутки на участника)
+// и сохраняет их как рекомендации с пометкой AI_ADVICE. Ошибки не критичны —
+// система тихо остаётся на правилах.
+func (s *Service) applyAIAdvice(ctx context.Context, p *models.Participant, index int,
+	monthly decimal.Decimal, gapDate *time.Time) []string {
+
+	if s.llm == nil || !s.llm.Enabled() {
+		return nil
+	}
+	dedupSince := time.Now().Add(-24 * time.Hour)
+	if exists, err := s.repo.HasRecentRecommendation(ctx, p.ID, llmAdviceRule, dedupSince); err != nil || exists {
+		return nil
+	}
+
+	last14, err := s.repo.GetLastMetrics(ctx, p.ID, 14)
+	if err != nil {
+		return nil
+	}
+	metrics60, _ := s.repo.GetMetricsRange(ctx, p.ID,
+		dateOnly(time.Now().UTC()).AddDate(0, 0, -60), dateOnly(time.Now().UTC()))
+	period := comparePeriods(metrics60, dateOnly(time.Now().UTC()), 30)
+	bestDay := ""
+	if profile := weekdayProfile(metrics60); len(profile) > 0 {
+		if txt := bestWeekday(profile); txt != "" {
+			bestDay = fullWeekday(profile[0].Label) // грубо; текст всё равно в промпте
+		}
+	}
+
+	ac := buildAdviceContext(p, index, monthly, last14, gapDate, period, bestDay)
+	tips, err := s.llm.GenerateAdvice(ctx, ac)
+	if err != nil {
+		s.log.Warn("LLM-советы недоступны, остаюсь на правилах", "participant", p.ID, "err", err)
+		return nil
+	}
+	for _, tip := range tips {
+		if err := s.repo.InsertRecommendation(ctx, p.ID, llmAdviceRule, tip); err != nil {
+			s.log.Warn("не удалось сохранить AI-совет", "err", err)
+		}
+	}
+	if len(tips) > 0 {
+		s.log.Info("AI-советы сгенерированы", "participant", p.ID, "count", len(tips))
+		return []string{llmAdviceRule}
+	}
+	return nil
+}
+
 // Financials — текущие финансовые показатели для дашборда.
 type Financials struct {
 	CurrentBalance  decimal.Decimal
@@ -225,7 +291,19 @@ func (s *Service) ComputeFinancials(ctx context.Context, pid uuid.UUID) (*Financ
 		days := int(dateOnly(*totals.LastDate).Sub(dateOnly(*totals.FirstDate)).Hours()/24) + 1
 		f.CurrentBalance = CurrentBalance(totals.NetTotal, monthly, days)
 	}
+	if paidOneOffs, err := s.repo.SumOneOffExpenses(ctx, pid, dateOnly(time.Now().UTC())); err == nil {
+		f.CurrentBalance = f.CurrentBalance.Sub(paidOneOffs)
+	}
 	return f, nil
+}
+
+// oneOffsAsPayments — будущие разовые расходы в формате платежей календаря/разрыва.
+func oneOffsAsPayments(oneOffs []repository.OneOffExpense) []Payment {
+	out := make([]Payment, len(oneOffs))
+	for i, o := range oneOffs {
+		out[i] = Payment{Date: dateOnly(o.Date), Amount: o.Amount, Description: o.Description}
+	}
+	return out
 }
 
 // fillSeries превращает метрики в непрерывный дневной ряд (пропуски → 0).

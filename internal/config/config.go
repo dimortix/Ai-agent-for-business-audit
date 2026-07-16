@@ -20,6 +20,16 @@ type Config struct {
 	VAPIDPublicKey   string
 	VAPIDPrivateKey  string
 	RecalcInterval   time.Duration
+
+	// LLM для AI-советов (OpenAI-совместимый эндпоинт: GigaChat/OpenAI/локальный).
+	// Пусто → советы только по правилам.
+	LLMApiURL string
+	LLMApiKey string
+	LLMModel  string
+
+	// Провайдер эквайринга (боевой источник транзакций). Пусто → только CSV.
+	AcquiringAPIURL   string
+	AcquiringAPIToken string
 }
 
 // Load читает окружение; для всего есть dev-дефолты, чтобы проект
@@ -39,6 +49,11 @@ func Load() Config {
 		VAPIDPublicKey:   getenv("VAPID_PUBLIC_KEY", ""),
 		VAPIDPrivateKey:  getenv("VAPID_PRIVATE_KEY", ""),
 		RecalcInterval:   getduration("RECALC_INTERVAL", time.Hour),
+		LLMApiURL:        getenv("LLM_API_URL", ""),
+		LLMApiKey:        getenv("LLM_API_KEY", ""),
+		LLMModel:         getenv("LLM_MODEL", ""),
+		AcquiringAPIURL:  getenv("ACQUIRING_API_URL", ""),
+		AcquiringAPIToken: getenv("ACQUIRING_API_TOKEN", ""),
 	}
 }
 

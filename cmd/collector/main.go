@@ -22,23 +22,25 @@ import (
 )
 
 func main() {
-	file := flag.String("file", "", "путь к CSV с транзакциями (account_id,date,amount,type)")
+	source := flag.String("source", "csv", "источник: csv | api (эквайринг). По крону обычно api")
+	file := flag.String("file", "", "путь к CSV (для -source=csv)")
+	days := flag.Int("days", 1, "сколько последних дней тянуть из API (для -source=api)")
 	recalc := flag.Bool("recalc", true, "пересчитать прогнозы затронутых участников группы B")
 	flag.Parse()
 
-	if *file == "" {
-		fmt.Fprintln(os.Stderr, "использование: collector -file <transactions.csv> [-recalc=false]")
+	if *source == "csv" && *file == "" {
+		fmt.Fprintln(os.Stderr, "использование: collector -file <transactions.csv>  |  collector -source api -days 1")
 		os.Exit(2)
 	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	if err := run(*file, *recalc, log); err != nil {
+	if err := run(*source, *file, *days, *recalc, log); err != nil {
 		log.Error("импорт не удался", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(file string, recalc bool, log *slog.Logger) error {
+func run(source, file string, days int, recalc bool, log *slog.Logger) error {
 	cfg := config.Load()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -52,15 +54,31 @@ func run(file string, recalc bool, log *slog.Logger) error {
 	repo := repository.New(pool)
 	svc := service.New(repo, service.NewMLClient(cfg.MLServiceURL), log)
 
-	f, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	report, err := svc.ImportTransactionsCSV(ctx, f)
-	if err != nil {
-		return err
+	var report *service.ImportReport
+	if source == "api" {
+		// Боевой режим: тянем транзакции из API эквайринга через провайдер.
+		provider := service.NewAcquiringAPIProvider(cfg.AcquiringAPIURL, cfg.AcquiringAPIToken)
+		to := time.Now().UTC()
+		from := to.AddDate(0, 0, -days)
+		log.Info("сбор из API эквайринга", "provider", provider.Name(), "from", from.Format("2006-01-02"))
+		txs, err := provider.GetTransactions(ctx, from, to)
+		if err != nil {
+			return err
+		}
+		report = &service.ImportReport{Errors: []string{}}
+		if err := svc.ImportParsedTransactions(ctx, txs, report); err != nil {
+			return err
+		}
+	} else {
+		f, ferr := os.Open(file)
+		if ferr != nil {
+			return ferr
+		}
+		defer f.Close()
+		report, err = svc.ImportTransactionsCSV(ctx, f)
+		if err != nil {
+			return err
+		}
 	}
 
 	out := map[string]any{

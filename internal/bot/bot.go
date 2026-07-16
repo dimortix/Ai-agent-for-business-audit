@@ -96,7 +96,7 @@ func (b *Bot) handleCommand(ctx context.Context, m *tgbotapi.Message) {
 		b.handleAdvice(ctx, m)
 	case "help":
 		b.reply(m.Chat.ID,
-			"<b>Альфа-Пульс</b> — пульс вашего бизнеса.\n\n"+
+			"<b>Альфа.Пульс</b> — пульс вашего бизнеса.\n\n"+
 				"/status — индекс здоровья, выручка и прогноз\n"+
 				"/advice — актуальные советы\n"+
 				"/start — привязать номер телефона\n\n"+
@@ -108,7 +108,7 @@ func (b *Bot) handleCommand(ctx context.Context, m *tgbotapi.Message) {
 
 func (b *Bot) handleStart(m *tgbotapi.Message) {
 	msg := tgbotapi.NewMessage(m.Chat.ID,
-		"Привет! Я «Альфа-Пульс» — слежу за здоровьем вашего бизнеса.\n\n"+
+		"Привет! Я «Альфа.Пульс» — слежу за здоровьем вашего бизнеса.\n\n"+
 			"Нажмите кнопку ниже, чтобы привязать номер телефона участника пилота.")
 	btn := tgbotapi.NewKeyboardButtonContact("📱 Поделиться номером")
 	kb := tgbotapi.NewReplyKeyboard([]tgbotapi.KeyboardButton{btn})

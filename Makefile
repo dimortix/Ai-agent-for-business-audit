@@ -1,4 +1,4 @@
-# Альфа-Пульс — команды разработки и демо
+# Альфа.Пульс — команды разработки и демо
 -include .env
 ADMIN_TOKEN ?= alfa-admin
 BASE_URL    ?= http://localhost:8080
@@ -41,6 +41,17 @@ demo:
 	@echo ""
 	@echo "Демо готово: http://localhost:8080 — вход +79001234567 (код в ответе/логах: make logs)"
 
+## Дополнительные участники: пекарня (зелёный), барбершоп (жёлтый+разрыв),
+## фудтрак (рост), цветочный (контроль A) — поверх основного демо
+demo-extra:
+	go run ./scripts/gendemo
+	curl -sf -X POST -H "X-Admin-Token: $(ADMIN_TOKEN)" -F "file=@data/participants.csv" $(BASE_URL)/api/participants/import
+	@echo ""
+	cat data/expenses_extra.sql | docker compose exec -T postgres psql -q -U pulse -d pulse
+	curl -sf -X POST -H "X-Admin-Token: $(ADMIN_TOKEN)" -F "file=@data/transactions_extra.csv" $(BASE_URL)/api/admin/import-transactions
+	@echo ""
+	@echo "Добавлены: +79011111111 (пекарня), +79022222222 (барбершоп), +79033333333 (фудтрак), +79044444444 (цветы, A)"
+
 ## Кризис: докатить 7 «провальных» дней → ИЖБ < 40 → push/Telegram-уведомление
 crisis:
 	curl -sf -X POST -H "X-Admin-Token: $(ADMIN_TOKEN)" -F "file=@data/transactions_crisis.csv" $(BASE_URL)/api/admin/import-transactions
@@ -51,10 +62,10 @@ crisis:
 reset-alarm:
 	docker compose exec redis sh -c "redis-cli KEYS 'notify:last:*' | xargs -r redis-cli DEL"
 
-## Очистить метрики/прогнозы/советы/отпечатки импорта (для чистого повторного demo)
+## Очистить метрики/прогнозы/советы/операции/отпечатки импорта (для чистого повторного demo)
 reset-data:
 	docker compose exec -T postgres psql -q -U pulse -d pulse -c \
-		"TRUNCATE daily_metrics, predictions, recommendations, import_batches RESTART IDENTITY;"
+		"TRUNCATE daily_metrics, predictions, recommendations, import_batches, transactions, one_off_expenses RESTART IDENTITY;"
 
 ## Бэкап БД в backups/pulse-<дата>.sql.gz
 backup:

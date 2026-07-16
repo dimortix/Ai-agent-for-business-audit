@@ -5,6 +5,7 @@ import Admin from "./pages/Admin";
 import Advice from "./pages/Advice";
 import Analytics from "./pages/Analytics";
 import Dashboard from "./pages/Dashboard";
+import Expenses from "./pages/Expenses";
 import Login from "./pages/Login";
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,7 @@ export default function App() {
       <Route path="/admin" element={<Admin />} />
       <Route path="/" element={<Protected><Dashboard /></Protected>} />
       <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
+      <Route path="/expenses" element={<Protected><Expenses /></Protected>} />
       <Route path="/advice" element={<Protected><Advice /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

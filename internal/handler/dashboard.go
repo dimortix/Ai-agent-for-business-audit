@@ -92,6 +92,19 @@ func (d Deps) dashboard(w http.ResponseWriter, r *http.Request) {
 	resp["model_used"] = preds[0].ModelUsed
 	resp["calculated_at"] = preds[0].CalculatedAt.Format(time.RFC3339)
 
+	// Лента последних операций (ТЗ V2, п. 6) — «живой» бизнес на главном экране.
+	if txs, err := d.Repo.ListRecentTransactions(ctx, pid, 6); err == nil {
+		ops := make([]map[string]any, len(txs))
+		for i, t := range txs {
+			ops[i] = map[string]any{
+				"paid_at": t.PaidAt.Format(time.RFC3339),
+				"amount":  t.Amount,
+				"type":    t.Type,
+			}
+		}
+		resp["recent_operations"] = ops
+	}
+
 	if preds[0].HealthIndex != nil {
 		idx := *preds[0].HealthIndex
 		resp["health_index"] = idx

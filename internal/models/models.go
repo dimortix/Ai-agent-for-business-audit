@@ -42,6 +42,7 @@ type FixedExpense struct {
 	Description   string          `json:"description"`
 	Amount        decimal.Decimal `json:"amount"`
 	DueDayOfMonth int             `json:"due_day_of_month"`
+	Category      string          `json:"category"` // rent|salary|supplies|taxes|loan|utilities|other
 }
 
 type Prediction struct {

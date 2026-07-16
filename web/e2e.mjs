@@ -1,4 +1,4 @@
-// E2E-прогон Альфа-Пульс в headless Chrome (puppeteer-core):
+// E2E-прогон Альфа.Пульс в headless Chrome (puppeteer-core):
 // логин по OTP (debug_code из dev-режима) → дашборд → аналитика → советы,
 // мобильный вьюпорт 375px (приёмочный критерий №5), скриншоты в out-каталог.
 //

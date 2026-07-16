@@ -57,7 +57,7 @@ export default function Login() {
           <div className="relative flex size-16 items-center justify-center rounded-3xl bg-brand shadow-lg shadow-brand/25">
             <Activity className="pulse-dot size-8 text-white" strokeWidth={2.5} />
           </div>
-          <h1 className="mt-4 text-2xl font-bold">Альфа-Пульс</h1>
+          <h1 className="mt-4 text-2xl font-bold">Альфа.Пульс</h1>
           <p className="mt-1 text-sm text-ink-2">
             Личный финансовый доктор вашего бизнеса
           </p>

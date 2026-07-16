@@ -56,6 +56,11 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       RECALC_INTERVAL: ${RECALC_INTERVAL:-1h}
+      LLM_API_URL: ${LLM_API_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      ACQUIRING_API_URL: ${ACQUIRING_API_URL:-}
+      ACQUIRING_API_TOKEN: ${ACQUIRING_API_TOKEN:-}
     volumes:
       - ./data:/app/data
     depends_on:

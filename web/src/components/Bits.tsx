@@ -1,15 +1,30 @@
 // Мелкие переиспользуемые блоки: статистика, пустые состояния, спиннер.
 
-export function StatCard({ label, value, hint, delay = 0 }: {
+export function StatCard({ label, value, hint, delta, deltaInvert, delay = 0 }: {
   label: string;
   value: string;
   hint?: string;
+  /** доля изменения к прошлому периоду: 0.12 = +12% */
+  delta?: number;
+  /** для метрик, где рост — это плохо (возвраты) */
+  deltaInvert?: boolean;
   delay?: number;
 }) {
+  const good = delta !== undefined && (deltaInvert ? delta <= 0 : delta >= 0);
   return (
     <div className={`card rise-in p-4 ${delay ? `rise-in-${delay}` : ""}`}>
       <div className="text-xs font-medium text-ink-3">{label}</div>
-      <div className="mt-1 text-xl font-bold tabular-nums leading-tight">{value}</div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <span className="text-xl font-bold tabular-nums leading-tight">{value}</span>
+        {delta !== undefined && Math.abs(delta) >= 0.005 && (
+          <span
+            className="text-xs font-bold tabular-nums"
+            style={{ color: good ? "var(--color-good)" : "var(--color-crit)" }}
+          >
+            {delta >= 0 ? "↑" : "↓"}{Math.abs(delta * 100).toFixed(0)}%
+          </span>
+        )}
+      </div>
       {hint && <div className="mt-0.5 text-[11px] text-ink-3">{hint}</div>}
     </div>
   );

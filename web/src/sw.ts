@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-// Сервис-воркер Альфа-Пульс: precache оболочки (PWA), офлайн-fallback,
+// Сервис-воркер Альфа.Пульс: precache оболочки (PWA), офлайн-fallback,
 // приём push-уведомлений.
 import { clientsClaim } from "workbox-core";
 import { createHandlerBoundToURL, precacheAndRoute } from "workbox-precaching";
@@ -45,7 +45,7 @@ self.addEventListener("push", (event) => {
     data = { body: event.data?.text() };
   }
   event.waitUntil(
-    self.registration.showNotification(data.title ?? "Альфа-Пульс", {
+    self.registration.showNotification(data.title ?? "Альфа.Пульс", {
       body: data.body ?? "",
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
