@@ -75,6 +75,41 @@ func TestParseAdviceList(t *testing.T) {
 	assert.Len(t, parseAdviceList(`["раз","два","три","четыре","пять"]`), 3)
 }
 
+func TestLLMChat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		require.GreaterOrEqual(t, len(req.Messages), 2)
+		assert.Equal(t, "system", req.Messages[0].Role)
+		assert.Contains(t, req.Messages[0].Content, "Данные бизнеса")
+		assert.Equal(t, "user", req.Messages[len(req.Messages)-1].Role)
+
+		resp := map[string]any{"choices": []map[string]any{{
+			"message": map[string]string{"role": "assistant", "content": "Попробуйте комбо-наборы."},
+		}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	llm := NewLLMClient(srv.URL, "", "m")
+	reply, err := llm.Chat(context.Background(),
+		"системный промпт с блоком «Данные бизнеса»",
+		[]ChatTurn{{Role: "user", Content: "Как поднять чек?"}})
+	require.NoError(t, err)
+	assert.Equal(t, "Попробуйте комбо-наборы.", reply)
+}
+
+func TestStripReasoning(t *testing.T) {
+	assert.Equal(t, "Ответ.", stripReasoning("<think>долгие раздумья</think>Ответ."))
+	assert.Equal(t, "Без тегов.", stripReasoning("Без тегов."))
+	assert.Equal(t, "", stripReasoning("<think>оборванный блок"))
+}
+
 func TestBusinessType(t *testing.T) {
 	assert.Equal(t, "кофейня", businessType("Кофейня «Демо Кофе»"))
 	assert.Equal(t, "пекарня", businessType("Пекарня «Тёплый хлеб»"))

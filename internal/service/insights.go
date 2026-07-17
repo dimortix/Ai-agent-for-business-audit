@@ -89,6 +89,7 @@ type Insights struct {
 	MarginPct          *float64         `json:"margin_pct,omitempty"`      // операционная маржа 30д
 	BreakEvenDaily     *decimal.Decimal `json:"break_even_daily,omitempty"` // фикс. расходы / 30
 	DaysAboveBreakEven *int             `json:"days_above_break_even,omitempty"`
+	MonthlyExpenses    *decimal.Decimal `json:"monthly_expenses,omitempty"` // обязательные платежи в месяц
 
 	// только группа B (прогнозные):
 	RunwayDays        *int            `json:"runway_days,omitempty"` // 121 = «120+»
@@ -133,6 +134,10 @@ func (s *Service) BuildInsights(ctx context.Context, pid uuid.UUID) (*Insights, 
 
 	// Экономика с учётом расходов: прибыль по дням, маржа, безубыточность.
 	monthlyAll, _ := s.repo.MonthlyExpensesTotal(ctx, pid)
+	if monthlyAll.IsPositive() {
+		me := monthlyAll.Round(0)
+		out.MonthlyExpenses = &me
+	}
 	oneOffByDay, _ := s.repo.DailyOneOffTotals(ctx, pid, today.AddDate(0, 0, -30), today)
 	s.fillProfitEconomics(out, metrics60, monthlyAll, oneOffByDay, today)
 

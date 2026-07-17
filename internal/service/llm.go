@@ -42,7 +42,9 @@ func NewLLMClient(baseURL, apiKey, model string) *LLMClient {
 		baseURL: strings.TrimRight(baseURL, "/"),
 		apiKey:  apiKey,
 		model:   model,
-		httpc:   &http.Client{Timeout: 25 * time.Second},
+		// локальные модели (ollama) при первом запросе грузятся в память —
+		// таймаут с запасом
+		httpc: &http.Client{Timeout: 120 * time.Second},
 	}
 }
 
@@ -78,6 +80,50 @@ type chatResponse struct {
 	} `json:"choices"`
 }
 
+// complete — общий вызов chat/completions (используют советы и чат-советник).
+func (c *LLMClient) complete(ctx context.Context, messages []chatMessage, maxTokens int, temperature float64) (string, error) {
+	req := chatRequest{
+		Model:       c.model,
+		Temperature: temperature,
+		MaxTokens:   maxTokens,
+		Messages:    messages,
+	}
+	body, _ := json.Marshal(req)
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+
+	resp, err := c.httpc.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("LLM недоступен: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return "", fmt.Errorf("LLM вернул %d: %s", resp.StatusCode, msg)
+	}
+
+	var out chatResponse
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil {
+		return "", err
+	}
+	if len(out.Choices) == 0 {
+		return "", fmt.Errorf("LLM вернул пустой ответ")
+	}
+	content := strings.TrimSpace(out.Choices[0].Message.Content)
+	if content == "" {
+		// думающие модели могут потратить весь лимит на reasoning
+		return "", fmt.Errorf("модель вернула пустой ответ (не хватило токенов после размышлений)")
+	}
+	return content, nil
+}
+
 // GenerateAdvice просит модель дать 2–3 конкретных совета. Возвращает список
 // текстов; при любой ошибке — nil (вызывающий тихо остаётся на правилах).
 func (c *LLMClient) GenerateAdvice(ctx context.Context, ac AdviceContext) ([]string, error) {
@@ -93,44 +139,34 @@ func (c *LLMClient) GenerateAdvice(ctx context.Context, ac AdviceContext) ([]str
 		"Верни СТРОГО JSON-массив из 2–3 строк, без пояснений вокруг, например: " +
 		`["Совет один.","Совет два."]`
 
-	req := chatRequest{
-		Model:       c.model,
-		Temperature: 0.7,
-		MaxTokens:   500,
-		Messages: []chatMessage{
-			{Role: "system", Content: system},
-			{Role: "user", Content: ac.prompt()},
-		},
-	}
-	body, _ := json.Marshal(req)
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
+	content, err := c.complete(ctx, []chatMessage{
+		{Role: "system", Content: system},
+		{Role: "user", Content: ac.prompt()},
+	}, 900, 0.7)
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if c.apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-	}
+	return parseAdviceList(content), nil
+}
 
-	resp, err := c.httpc.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("LLM недоступен: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("LLM вернул %d: %s", resp.StatusCode, msg)
-	}
+// ChatTurn — реплика диалога чат-советника (роли user/assistant).
+type ChatTurn struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
 
-	var out chatResponse
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil {
-		return nil, err
+// Chat отвечает на реплику пользователя с учётом системного промпта
+// (бизнес-контекст) и истории диалога.
+func (c *LLMClient) Chat(ctx context.Context, system string, history []ChatTurn) (string, error) {
+	if !c.Enabled() {
+		return "", fmt.Errorf("LLM не сконфигурирован")
 	}
-	if len(out.Choices) == 0 {
-		return nil, fmt.Errorf("LLM вернул пустой ответ")
+	messages := make([]chatMessage, 0, len(history)+1)
+	messages = append(messages, chatMessage{Role: "system", Content: system})
+	for _, t := range history {
+		messages = append(messages, chatMessage{Role: t.Role, Content: t.Content})
 	}
-	return parseAdviceList(out.Choices[0].Message.Content), nil
+	return c.complete(ctx, messages, 1200, 0.6)
 }
 
 func (ac AdviceContext) prompt() string {

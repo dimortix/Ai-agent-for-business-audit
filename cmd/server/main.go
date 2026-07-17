@@ -108,6 +108,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 		Push:        pushSender,
 		TG:          tgSender,
 		BotUsername: tgBot.Username(),
+		RDB:         rdb,
 	})
 
 	srv := &http.Server{

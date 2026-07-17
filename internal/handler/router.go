@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 
 	"alfa-pulse/internal/auth"
 	"alfa-pulse/internal/config"
@@ -32,6 +33,7 @@ type Deps struct {
 	Push        *push.Sender
 	TG          service.TelegramSender // nil, если бот выключен
 	BotUsername string                 // для ссылки привязки t.me/<bot>
+	RDB         *redis.Client          // лимиты чата-советника
 }
 
 var httpRequests = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -86,6 +88,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Post("/api/my/expenses/one-off", d.addOneOffExpense)
 		r.Delete("/api/my/expenses/one-off/{id}", d.deleteOneOffExpense)
 		r.Get("/api/report/monthly", d.monthlyReport)
+		r.Post("/api/chat", d.chat)
 	})
 
 	// Админское API (X-Admin-Token, действия попадают в аудит-лог)

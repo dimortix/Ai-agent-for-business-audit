@@ -123,6 +123,7 @@ export interface Insights {
   margin_pct?: number;
   break_even_daily?: number;
   days_above_break_even?: number;
+  monthly_expenses?: number;
   runway_days?: number;
   health_history?: HealthPoint[];
   forecast_mape?: number;

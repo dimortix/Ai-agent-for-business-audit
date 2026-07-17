@@ -6,6 +6,7 @@ import type { Analytics as AnalyticsData, Insights } from "../api/types";
 import { ErrorNote, Spinner, StatCard } from "../components/Bits";
 import { BenchmarkCards, CashCalendarCard, InsightsStrip } from "../components/InsightBlocks";
 import MetricChart from "../components/MetricChart";
+import MonthSummaryCard from "../components/MonthSummaryCard";
 import { daysAgoISO, fmtDateShort, fmtMoney, fmtMoneyCompact, todayISO } from "../lib/format";
 
 const presets = [
@@ -138,6 +139,15 @@ export default function Analytics() {
               delay={2}
             />
           </div>
+
+          {/* итог за 30 дней: сколько остаётся после обязательных расходов */}
+          {isGroupB && insights?.period && insights.monthly_expenses !== undefined && (
+            <MonthSummaryCard
+              earned={insights.period.current.revenue}
+              expenses={insights.monthly_expenses}
+              delay={2}
+            />
+          )}
 
           {/* экономика с учётом расходов (группа B) */}
           {isGroupB && insights && (insights.margin_pct !== undefined || insights.break_even_daily !== undefined) && (

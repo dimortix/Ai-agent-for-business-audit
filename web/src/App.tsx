@@ -3,6 +3,7 @@ import { loadUser } from "./api/client";
 import Layout from "./components/Layout";
 import Admin from "./pages/Admin";
 import Advice from "./pages/Advice";
+import Advisor from "./pages/Advisor";
 import Analytics from "./pages/Analytics";
 import Dashboard from "./pages/Dashboard";
 import Expenses from "./pages/Expenses";
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
       <Route path="/expenses" element={<Protected><Expenses /></Protected>} />
       <Route path="/advice" element={<Protected><Advice /></Protected>} />
+      <Route path="/advisor" element={<Protected><Advisor /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
